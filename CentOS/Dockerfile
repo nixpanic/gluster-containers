@@ -36,6 +36,9 @@ cp -r /var/log/glusterfs/* /var/log/glusterfs_bkp && \
 sed -i.save -e "s#udev_sync = 1#udev_sync = 0#" -e "s#udev_rules = 1#udev_rules = 0#" -e "s#use_lvmetad = 1#use_lvmetad = 0#" /etc/lvm/lvm.conf
 
 VOLUME [ "/sys/fs/cgroup" ]
+# It is recommended to use LVM for bricks, which may require loading kernel modules
+VOLUME [ "/usr/lib/modules" ]
+
 ADD gluster-setup.service /etc/systemd/system/gluster-setup.service
 ADD gluster-setup.sh /usr/sbin/gluster-setup.sh
 

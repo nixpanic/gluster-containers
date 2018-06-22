@@ -4,7 +4,7 @@ Before=glusterd.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/gluster-setup.sh
+ExecStart=/usr/libexec/glusterfs/contaner-setup.sh
 
 [Install]
 WantedBy=multi-user.target

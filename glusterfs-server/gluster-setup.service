@@ -4,6 +4,7 @@ Before=glusterd.service
 
 [Service]
 Type=oneshot
+PassEnvironment=USE_FAKE_DISK FAKE_DISK_FILE FAKE_DISK_SIZE FAKE_DISK_DEV
 ExecStart=/usr/libexec/glusterfs/container-setup.sh
 
 [Install]

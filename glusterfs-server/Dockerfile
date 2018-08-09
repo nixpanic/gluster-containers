@@ -20,8 +20,10 @@ RUN yum --setopt=tsflags=nodocs -y update && \
     yum --setopt=tsflags=nodocs -y install glusterfs-server && \
     systemctl enable glusterd.service
 
-# configure LVM
-RUN sed 's/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="systemd_end"/g' /usr/lib/udev/rules.d/99-systemd.rules > /etc/udev/rules.d/99-systemd.rules && \
+# configure LVM so the container can manage the bricks
+RUN yum --setopt=tsflags=nodocs -y install lvm2 && \
+    yum --setopt=tsflags=nodocs -y install xfsprogs && \
+    sed 's/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="systemd_end"/g' /usr/lib/udev/rules.d/99-systemd.rules > /etc/udev/rules.d/99-systemd.rules && \
     sed -i -e "s#udev_sync = 1#udev_sync = 0#" -e "s#udev_rules = 1#udev_rules = 0#" -e "s#use_lvmetad = 1#use_lvmetad = 0#" /etc/lvm/lvm.conf
 
 # prepare for backups, will be used in container-setup.sh as well

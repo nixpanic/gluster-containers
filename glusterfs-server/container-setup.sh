@@ -41,7 +41,7 @@ setup_fake_disk () {
 	local fakedev
 
 	fakedev=$(losetup --find --show ${FAKE_DISK_FILE})
-	[ -e "${fakedev}" ] && ln -s ${fakedev} ${FAKE_DISK_DEV}
+	[ -e "${fakedev}" ] && ln -fs ${fakedev} ${FAKE_DISK_DEV}
 }
 
 # Add the a public ssh-key to (homedir of user)/.ssh/authorized_keys

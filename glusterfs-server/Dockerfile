@@ -14,29 +14,46 @@ LABEL architecture="x86_64" \
       description="Gluster Image is based on CentOS Image which is a scalable network filesystem. Using common off-the-shelf hardware, you can create large, distributed storage solutions for media streaming, data analysis, and other data- and bandwidth-intensive tasks." \
       io.openshift.tags="gluster,glusterfs,glusterfs-centos"
 
+# update all packages and install glusterfs-server
 RUN yum --setopt=tsflags=nodocs -y update && \
     yum --setopt=tsflags=nodocs -y install centos-release-gluster && \
-    yum --setopt=tsflags=nodocs -y install glusterfs-server  && \
-    yum clean all && rm -rf /var/cache/yum && \
-    sed 's/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="systemd_end"/g' /usr/lib/udev/rules.d/99-systemd.rules > /etc/udev/rules.d/99-systemd.rules && \
-    sed -i -e "s#udev_sync = 1#udev_sync = 0#" -e "s#udev_rules = 1#udev_rules = 0#" -e "s#use_lvmetad = 1#use_lvmetad = 0#" /etc/lvm/lvm.conf && \
-    mkdir -p /etc/glusterfs_bkp /var/lib/glusterd_bkp /var/log/glusterfs_bkp && \
+    yum --setopt=tsflags=nodocs -y install glusterfs-server && \
+    systemctl enable glusterd.service
+
+# configure LVM
+RUN sed 's/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"/ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="systemd_end"/g' /usr/lib/udev/rules.d/99-systemd.rules > /etc/udev/rules.d/99-systemd.rules && \
+    sed -i -e "s#udev_sync = 1#udev_sync = 0#" -e "s#udev_rules = 1#udev_rules = 0#" -e "s#use_lvmetad = 1#use_lvmetad = 0#" /etc/lvm/lvm.conf
+
+# prepare for backups, will be used in container-setup.sh as well
+RUN mkdir -p /etc/glusterfs_bkp /var/lib/glusterd_bkp /var/log/glusterfs_bkp && \
     cp -r /etc/glusterfs/* /etc/glusterfs_bkp && \
     cp -r /var/lib/glusterd/* /var/lib/glusterd_bkp && \
     cp -r /var/log/glusterfs/* /var/log/glusterfs_bkp
 
-VOLUME [ "/sys/fs/cgroup" ]
-VOLUME [ "/lib/modules" ]
+# install and configure an ssh-server to allow heketi to excecute commands
+# (kubexec is throttled by kubernetes and causes delays)
+RUN yum --setopt=tsflags=nodocs -y install openssh-server && \
+    sed -i '/Port 22/c\Port 2222' /etc/ssh/sshd_config && \
+    systemctl enable sshd
 
+# init script for backups, logging, debug, loopback storage and more
 ADD gluster-setup.service /etc/systemd/system/gluster-setup.service
 ADD container-setup.sh /usr/libexec/glusterfs/container-setup.sh
 
 RUN chmod 644 /etc/systemd/system/gluster-setup.service && \
     chmod 755 /usr/libexec/glusterfs/container-setup.sh && \
-    systemctl mask getty.target && \
-    systemctl enable gluster-setup.service && \
-    systemctl enable glusterd.service
+    systemctl enable gluster-setup.service
 
-EXPOSE 24007 49152 49153 49154 49156 49157 49158 49159 49160 49161 49162
+# cleanup and general config
+RUN yum clean all && rm -rf /var/cache/yum && \
+    systemctl mask getty.target && \
+    mkdir -p /var/log/core
+
+# systemd uses cgroups
+VOLUME [ "/sys/fs/cgroup" ]
+# enable loading of kernel modules (for LVM, thin-provisioning etc)
+VOLUME [ "/lib/modules" ]
+
+EXPOSE 2222 24007 49152 49153 49154 49156 49157 49158 49159 49160 49161 49162
 
 CMD ["/usr/sbin/init"]

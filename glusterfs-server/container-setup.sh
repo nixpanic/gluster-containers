@@ -21,7 +21,11 @@
 # available after restarting the glusterfs-server container.
 FAKE_DISK_FILE=${FAKE_DISK_FILE:-/srv/fake-disk.img}
 FAKE_DISK_SIZE=${FAKE_DISK_SIZE:-10G}
-FAKE_DISK_DEV=${FAKE_DISK_DEV:/dev/fake}
+FAKE_DISK_DEV=${FAKE_DISK_DEV:-/dev/fake}
+
+# Set the SSH_ROOT_PUB_KEY environment variable to include the key in
+# /root/.ssh/authorized_keys so password-less ssh access as root is possible.
+#SSH_ROOT_PUB_KEY='/path/to/some/ssh/public/key.pub'
 
 # Create the FAKE_DISK_FILE with fallocate, but only do so if it does not exist
 # yet.
@@ -38,6 +42,17 @@ setup_fake_disk () {
 
 	fakedev=$(losetup --find --show ${FAKE_DISK_FILE})
 	[ -e "${fakedev}" ] && ln -s ${fakedev} ${FAKE_DISK_DEV}
+}
+
+# Add the a public ssh-key to (homedir of user)/.ssh/authorized_keys
+add_ssh_pub_key () {
+	local user="${1}"
+	local key="${2}"
+	local ssh_dir=$(eval echo ~"${user}"/.ssh)
+
+	[ -d "${ssh_dir}" ] || ( mkdir -p "${ssh_dir}" && chmod 0700 "${ssh_dir}" )
+	cat "${key}" >> "${ssh_dir}"/authorized_keys
+	chmod 0600 "${ssh_dir}"/authorized_keys
 }
 
 main () {
@@ -133,6 +148,15 @@ then
 	if ! setup_fake_disk
 	then
 		echo "failed to setup loopback device for ${FAKE_DISK_FILE}"
+		exit 1
+	fi
+fi
+
+if [ -n "${SSH_ROOT_PUB_KEY}" ]
+then
+	if ! add_ssh_pub_key root "${SSH_ROOT_PUB_KEY}"
+	then
+		echo "failed to add ${SSH_ROOT_PUB_KEY} to /root/.ssh/authorized_keys"
 		exit 1
 	fi
 fi

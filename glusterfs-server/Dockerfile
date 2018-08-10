@@ -32,12 +32,6 @@ RUN mkdir -p /etc/glusterfs_bkp /var/lib/glusterd_bkp /var/log/glusterfs_bkp && 
     cp -r /var/lib/glusterd/* /var/lib/glusterd_bkp && \
     cp -r /var/log/glusterfs/* /var/log/glusterfs_bkp
 
-# install and configure an ssh-server to allow heketi to excecute commands
-# (kubexec is throttled by kubernetes and causes delays)
-RUN yum --setopt=tsflags=nodocs -y install openssh-server && \
-    sed -i '/Port 22/c\Port 2222' /etc/ssh/sshd_config && \
-    systemctl enable sshd
-
 # init script for backups, logging, debug, loopback storage and more
 ADD gluster-setup.service /etc/systemd/system/gluster-setup.service
 ADD container-setup.sh /usr/libexec/glusterfs/container-setup.sh
@@ -56,6 +50,6 @@ VOLUME [ "/sys/fs/cgroup" ]
 # enable loading of kernel modules (for LVM, thin-provisioning etc)
 VOLUME [ "/lib/modules" ]
 
-EXPOSE 2222 24007 49152 49153 49154 49156 49157 49158 49159 49160 49161 49162
+EXPOSE 24007 49152 49153 49154 49156 49157 49158 49159 49160 49161 49162
 
 CMD ["/usr/sbin/init"]

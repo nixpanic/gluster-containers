@@ -2,7 +2,7 @@
 
 ###
 # Description: Script to move the glusterfs initial setup to bind mounted directories of Atomic Host.
-# Copyright (c) 2016 Red Hat, Inc. <http://www.redhat.com>
+# Copyright (c) 2016-2018 Red Hat, Inc. <http://www.redhat.com>
 #
 # This file is part of GlusterFS.
 #
@@ -23,36 +23,21 @@ FAKE_DISK_FILE=${FAKE_DISK_FILE:-/srv/fake-disk.img}
 FAKE_DISK_SIZE=${FAKE_DISK_SIZE:-10G}
 FAKE_DISK_DEV=${FAKE_DISK_DEV:-/dev/fake}
 
-# Set the SSH_ROOT_PUB_KEY environment variable to include the key in
-# /root/.ssh/authorized_keys so password-less ssh access as root is possible.
-#SSH_ROOT_PUB_KEY='/path/to/some/ssh/public/key.pub'
-
 # Create the FAKE_DISK_FILE with fallocate, but only do so if it does not exist
 # yet.
 create_fake_disk_file () {
-	[ -e ${FAKE_DISK_FILE} ] && return 0
-	truncate --size ${FAKE_DISK_SIZE} ${FAKE_DISK_FILE}
+  [ -e "${FAKE_DISK_FILE}" ] && return 0
+  truncate --size "${FAKE_DISK_SIZE}" "${FAKE_DISK_FILE}"
 }
 
 # Setup a loop device for the FAKE_DISK_FILE, and create a symlink to /dev/fake
 # so that it has a stable name and can be used by other components (/dev/loop*
 # is numbered based on other existing loop devices).
 setup_fake_disk () {
-	local fakedev
+  local fakedev
 
-	fakedev=$(losetup --find --show ${FAKE_DISK_FILE})
-	[ -e "${fakedev}" ] && ln -fs ${fakedev} ${FAKE_DISK_DEV}
-}
-
-# Add the a public ssh-key to (homedir of user)/.ssh/authorized_keys
-add_ssh_pub_key () {
-	local user="${1}"
-	local key="${2}"
-	local ssh_dir=$(eval echo ~"${user}"/.ssh)
-
-	[ -d "${ssh_dir}" ] || ( mkdir -p "${ssh_dir}" && chmod 0700 "${ssh_dir}" )
-	cat "${key}" >> "${ssh_dir}"/authorized_keys
-	chmod 0600 "${ssh_dir}"/authorized_keys
+  fakedev=$(losetup --find --show "${FAKE_DISK_FILE}")
+  [ -e "${fakedev}" ] && ln -fs "${fakedev}" "${FAKE_DISK_DEV}"
 }
 
 main () {
@@ -97,10 +82,11 @@ main () {
         pvscan > $GLUSTERFS_LOG_CONT_DIR/pvscan
         vgscan > $GLUSTERFS_LOG_CONT_DIR/vgscan
         lvscan > $GLUSTERFS_LOG_CONT_DIR/lvscan
-        mount -a --fstab $GLUSTERFS_CUSTOM_FSTAB > $GLUSTERFS_LOG_CONT_DIR/mountfstab
-        if [ $? -eq 1 ]
+        mount -a --fstab $GLUSTERFS_CUSTOM_FSTAB &> $GLUSTERFS_LOG_CONT_DIR/mountfstab
+        sts=$?
+        if [ $sts -ne 0 ]
         then
-              echo "mount binary not failed" >> $GLUSTERFS_LOG_CONT_DIR/mountfstab
+              echo "mount command exited with code ${sts}" >> $GLUSTERFS_LOG_CONT_DIR/mountfstab
               exit 1
         fi
         echo "Mount command Successful" >> $GLUSTERFS_LOG_CONT_DIR/mountfstab
@@ -123,7 +109,7 @@ main () {
                    sleep 0.5
              fi
         done
-        if [ $(wc -l $GLUSTERFS_LOG_CONT_DIR/failed_bricks ) -gt 1 ]
+        if [ "$(wc -l $GLUSTERFS_LOG_CONT_DIR/failed_bricks )" -gt 1 ]
         then
               vgscan --mknodes > $GLUSTERFS_LOG_CONT_DIR/vgscan_mknodes
               sleep 10
@@ -139,26 +125,17 @@ main () {
 
 if [ -n "${USE_FAKE_DISK}" ]
 then
-	if ! create_fake_disk_file
-	then
-		echo "failed to create a fake disk at ${FAKE_DISK_FILE}"
-		exit 1
-	fi
+  if ! create_fake_disk_file
+  then
+    echo "failed to create a fake disk at ${FAKE_DISK_FILE}"
+    exit 1
+  fi
 
-	if ! setup_fake_disk
-	then
-		echo "failed to setup loopback device for ${FAKE_DISK_FILE}"
-		exit 1
-	fi
-fi
-
-if [ -n "${SSH_ROOT_PUB_KEY}" ]
-then
-	if ! add_ssh_pub_key root "${SSH_ROOT_PUB_KEY}"
-	then
-		echo "failed to add ${SSH_ROOT_PUB_KEY} to /root/.ssh/authorized_keys"
-		exit 1
-	fi
+  if ! setup_fake_disk
+  then
+    echo "failed to setup loopback device for ${FAKE_DISK_FILE}"
+    exit 1
+  fi
 fi
 
 main

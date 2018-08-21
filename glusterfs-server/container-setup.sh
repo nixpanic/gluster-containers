@@ -47,6 +47,21 @@ main () {
   GLUSTERFS_LOG_CONT_DIR="/var/log/glusterfs/container"
   GLUSTERFS_CUSTOM_FSTAB="/var/lib/heketi/fstab"
 
+  if [ -n "${USE_FAKE_DISK}" ]
+  then
+    if ! create_fake_disk_file
+    then
+      echo "failed to create a fake disk at ${FAKE_DISK_FILE}"
+      exit 1
+    fi
+
+    if ! setup_fake_disk
+    then
+      echo "failed to setup loopback device for ${FAKE_DISK_FILE}"
+      exit 1
+    fi
+  fi
+
   mkdir $GLUSTERFS_LOG_CONT_DIR
   for i in $GLUSTERFS_CONF_DIR $GLUSTERFS_LOG_DIR $GLUSTERFS_META_DIR
   do
@@ -122,20 +137,5 @@ main () {
   echo "Script Ran Successfully"
   exit 0
 }
-
-if [ -n "${USE_FAKE_DISK}" ]
-then
-  if ! create_fake_disk_file
-  then
-    echo "failed to create a fake disk at ${FAKE_DISK_FILE}"
-    exit 1
-  fi
-
-  if ! setup_fake_disk
-  then
-    echo "failed to setup loopback device for ${FAKE_DISK_FILE}"
-    exit 1
-  fi
-fi
 
 main
